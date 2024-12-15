@@ -134,11 +134,11 @@ class _GraphCanvasState extends State<GraphCanvas> {
           break;
         }
       }
+      setState(() {
+        newEdgeStart = null;
+        newEdgeEnd = null;
+      });
     }
-    setState(() {
-      newEdgeStart = null;
-      newEdgeEnd = null;
-    });
   }
 
   // ignore: non_constant_identifier_names
@@ -152,7 +152,7 @@ class _GraphCanvasState extends State<GraphCanvas> {
       }
     }
 
-    Future<void> goToEdge(Edge e) async {
+    Future<void> traverseEdge(Edge e) async {
       for (int i = 1; i <= 100; i++) {
         setState(() {
           e.animateEdge(i.toDouble(), Colors.green, Colors.yellow);
@@ -161,37 +161,48 @@ class _GraphCanvasState extends State<GraphCanvas> {
       }
     }
 
-    final List<Edge> stack = [];
+    if (source.neighbors.isEmpty) return;
+
+    final List<Edge> edgeStack = [];
     final List<bool> visited = List<bool>.filled(_nodes.length, false);
 
     setState(() {
-      source.setColor(Colors.red);
+      source.color = Colors.red;
     });
-
     await Future.delayed(Duration(seconds: 1));
-
-    for (Edge e in source.neighbors) {
-      stack.add(e);
-      await queueEdge(e);
-    }
     visited[source.id] = true;
 
-    while (stack.isNotEmpty) {
-      Edge cur = stack.removeLast();
-      if (visited[cur.end.id]) continue;
-      await goToEdge(cur);
-      visited[cur.end.id] = true;
+    Edge firstEdge = source.neighbors[0];
+    if (firstEdge.start != source) {
+      final temp = firstEdge.start;
+      firstEdge.start = firstEdge.end;
+      firstEdge.end = temp;
+    }
+    await queueEdge(firstEdge);
+    edgeStack.add(firstEdge);
 
+    while (edgeStack.isNotEmpty) {
+      Edge currentEdge = edgeStack.removeLast();
+
+      if (visited[currentEdge.end.id]) continue;
+      visited[currentEdge.end.id] = true;
+      await traverseEdge(currentEdge);
+
+      Node currentNode = currentEdge.end;
       setState(() {
-        cur.end.setColor(Colors.red);
+        currentNode.color = Colors.red;
       });
-      await Future.delayed(Duration(seconds: 1));
+      Future.delayed(Duration(seconds: 1));
 
-      for (Edge e in cur.end.neighbors) {
-        if (!visited[e.end.id]) {
-          stack.add(e);
-          await queueEdge(e);
+      for (Edge e in currentNode.neighbors) {
+        if (e.start != currentNode) {
+          final temp = e.start;
+          e.start = e.end;
+          e.end = temp;
         }
+        if (visited[e.end.id]) continue;
+        await queueEdge(e);
+        edgeStack.add(e);
       }
     }
   }

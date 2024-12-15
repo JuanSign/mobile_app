@@ -3,21 +3,23 @@ import 'package:grapher/components/graph/edge_painter.dart';
 import 'package:grapher/components/graph/node.dart';
 
 class Edge {
-  final Node start, end;
-  EdgePainter painter;
+  Node start, end;
+  Color mainColor;
+  Color secondaryColor;
+  double pct;
 
   Edge({
     required this.start,
     required this.end,
-  }) : painter = EdgePainter(start: start.position, end: end.position);
+    this.mainColor = Colors.black,
+    this.secondaryColor = Colors.black,
+    this.pct = 100,
+  });
 
   void animateEdge(double percentage, Color mainColor, Color secondaryColor) {
-    painter = EdgePainter(
-        start: start.position,
-        end: end.position,
-        firstPart: mainColor,
-        secondPart: secondaryColor,
-        pct: percentage);
+    pct = percentage;
+    this.mainColor = mainColor;
+    this.secondaryColor = secondaryColor;
   }
 
   Widget drawEdge() {
@@ -25,7 +27,13 @@ class Edge {
       left: 0,
       top: 0,
       child: CustomPaint(
-        painter: painter,
+        painter: EdgePainter(
+          start: start.position,
+          end: end.position,
+          firstPart: mainColor,
+          secondPart: secondaryColor,
+          pct: pct,
+        ),
       ),
     );
   }
