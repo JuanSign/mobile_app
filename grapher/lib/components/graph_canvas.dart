@@ -144,6 +144,7 @@ class _GraphCanvasState extends State<GraphCanvas> {
   // ignore: non_constant_identifier_names
   Future<void> _DFSTraversal(Node source) async {
     Future<void> queueEdge(Edge e) async {
+      if (_mode != "DFS Traversal") return;
       for (int i = 1; i <= 100; i++) {
         setState(() {
           e.animateEdge(i.toDouble(), Colors.yellow, Colors.black);
@@ -154,6 +155,7 @@ class _GraphCanvasState extends State<GraphCanvas> {
 
     Future<void> traverseEdge(Edge e) async {
       for (int i = 1; i <= 100; i++) {
+        if (_mode != "DFS Traversal") return;
         setState(() {
           e.animateEdge(i.toDouble(), Colors.green, Colors.yellow);
         });
@@ -182,6 +184,8 @@ class _GraphCanvasState extends State<GraphCanvas> {
     edgeStack.add(firstEdge);
 
     while (edgeStack.isNotEmpty) {
+      if (_mode != "DFS Traversal") break;
+
       Edge currentEdge = edgeStack.removeLast();
 
       if (visited[currentEdge.end.id]) continue;
@@ -205,6 +209,17 @@ class _GraphCanvasState extends State<GraphCanvas> {
         edgeStack.add(e);
       }
     }
+
+    setState(() {
+      for (Node n in _nodes) {
+        n.color = Colors.blue;
+      }
+      for (Edge e in _edges) {
+        e.mainColor = Colors.black;
+        e.secondaryColor = Colors.black;
+        e.pct = 100;
+      }
+    });
   }
 
   @override
