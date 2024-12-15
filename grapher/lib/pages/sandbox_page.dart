@@ -107,6 +107,23 @@ class _SandboxPageState extends State<SandboxPage> {
                 Navigator.pop(context);
               },
             ),
+            ListTile(
+              title: Text(
+                'BFS Traversal',
+                style: TextStyle(
+                  fontWeight: _mode == 'BFS Traversal'
+                      ? FontWeight.bold
+                      : FontWeight.normal,
+                  color: Colors.black,
+                ),
+              ),
+              selected: _mode == 'BFS Traversal',
+              selectedTileColor: Colors.blueAccent,
+              onTap: () {
+                _switchMode('BFS Traversal');
+                Navigator.pop(context);
+              },
+            ),
           ],
         ),
       ),

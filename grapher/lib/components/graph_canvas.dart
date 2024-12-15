@@ -1,3 +1,5 @@
+import 'dart:collection';
+
 import 'package:flutter/material.dart';
 import 'package:grapher/components/graph/edge.dart';
 import 'package:grapher/components/graph/edge_painter.dart';
@@ -141,27 +143,51 @@ class _GraphCanvasState extends State<GraphCanvas> {
     }
   }
 
+  Color getShadeOfYellow(int iteration, int maxIterations) {
+    final Color lightYellow = Colors.yellow.shade100;
+    final Color darkYellow = Colors.yellow.shade900;
+
+    double t = (iteration - 1) / (maxIterations - 1);
+
+    return Color.lerp(lightYellow, darkYellow, t) ?? lightYellow;
+  }
+
+  Future<void> queueEdge(Edge e, int iter, int max) async {
+    if (_mode != "DFS Traversal") return;
+    for (int i = 1; i <= 100; i++) {
+      setState(() {
+        e.animateEdge(i.toDouble(), getShadeOfYellow(iter, max), Colors.black);
+      });
+      await Future.delayed(Duration(milliseconds: 15));
+    }
+  }
+
+  Future<void> dequeuEdge(Edge e) async {
+    if (_mode != "DFS Traversal") return;
+    Color secondaryColor = e.mainColor;
+    for (int i = 100; i >= 0; i--) {
+      setState(() {
+        e.animateEdge(i.toDouble(), secondaryColor, Colors.black);
+      });
+      await Future.delayed(Duration(milliseconds: 15));
+    }
+  }
+
+  Future<void> traverseEdge(Edge e) async {
+    Color secondaryColor = e.mainColor;
+    for (int i = 1; i <= 100; i++) {
+      if (_mode != "DFS Traversal") return;
+      setState(() {
+        e.animateEdge(i.toDouble(), Colors.green, secondaryColor);
+      });
+      await Future.delayed(Duration(milliseconds: 15));
+    }
+  }
+
   // ignore: non_constant_identifier_names
   Future<void> _DFSTraversal(Node source) async {
-    Future<void> queueEdge(Edge e) async {
-      if (_mode != "DFS Traversal") return;
-      for (int i = 1; i <= 100; i++) {
-        setState(() {
-          e.animateEdge(i.toDouble(), Colors.yellow, Colors.black);
-        });
-        await Future.delayed(Duration(milliseconds: 15));
-      }
-    }
-
-    Future<void> traverseEdge(Edge e) async {
-      for (int i = 1; i <= 100; i++) {
-        if (_mode != "DFS Traversal") return;
-        setState(() {
-          e.animateEdge(i.toDouble(), Colors.green, Colors.yellow);
-        });
-        await Future.delayed(Duration(milliseconds: 15));
-      }
-    }
+    int curQueue = 1;
+    int maxQueue = _edges.length;
 
     if (source.neighbors.isEmpty) return;
 
@@ -174,21 +200,26 @@ class _GraphCanvasState extends State<GraphCanvas> {
     await Future.delayed(Duration(seconds: 1));
     visited[source.id] = true;
 
-    Edge firstEdge = source.neighbors[0];
-    if (firstEdge.start != source) {
-      final temp = firstEdge.start;
-      firstEdge.start = firstEdge.end;
-      firstEdge.end = temp;
+    for (Edge e in source.neighbors) {
+      if (e.start.id != source.id) {
+        final temp = e.start;
+        e.start = e.end;
+        e.end = temp;
+      }
+      await queueEdge(e, curQueue++, maxQueue);
+      edgeStack.add(e);
     }
-    await queueEdge(firstEdge);
-    edgeStack.add(firstEdge);
 
     while (edgeStack.isNotEmpty) {
       if (_mode != "DFS Traversal") break;
 
       Edge currentEdge = edgeStack.removeLast();
 
-      if (visited[currentEdge.end.id]) continue;
+      if (visited[currentEdge.end.id]) {
+        await dequeuEdge(currentEdge);
+        continue;
+      }
+
       visited[currentEdge.end.id] = true;
       await traverseEdge(currentEdge);
 
@@ -199,13 +230,18 @@ class _GraphCanvasState extends State<GraphCanvas> {
       Future.delayed(Duration(seconds: 1));
 
       for (Edge e in currentNode.neighbors) {
-        if (e.start != currentNode) {
+        if (e.start.id != currentNode.id) {
           final temp = e.start;
           e.start = e.end;
           e.end = temp;
         }
-        if (visited[e.end.id]) continue;
-        await queueEdge(e);
+        if (visited[e.end.id]) {
+          final temp = e.start;
+          e.start = e.end;
+          e.end = temp;
+          continue;
+        }
+        await queueEdge(e, curQueue++, maxQueue);
         edgeStack.add(e);
       }
     }
@@ -221,6 +257,8 @@ class _GraphCanvasState extends State<GraphCanvas> {
       }
     });
   }
+
+  Future<void> _BFSTraversal(Node source) async {}
 
   @override
   Widget build(BuildContext context) {
