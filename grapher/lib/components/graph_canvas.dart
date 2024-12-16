@@ -206,7 +206,7 @@ class _GraphCanvasState extends State<GraphCanvas> {
     visited[source.id] = true;
 
     for (Edge e in source.neighbors) {
-      if (_mode != "BFS Traversal") break;
+      if (_mode != "DFS Traversal") break;
       if (e.start.id != source.id) {
         final temp = e.start;
         e.start = e.end;
