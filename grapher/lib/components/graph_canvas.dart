@@ -591,9 +591,12 @@ class _GraphCanvasState extends State<GraphCanvas> {
                       }
                       for (int i = 0; i < edges.length; i++) {
                         setState(() {
-                          _edges.add(Edge(
+                          Edge newEdge = Edge(
                               start: _nodes[edges[i][0]],
-                              end: _nodes[edges[i][1]]));
+                              end: _nodes[edges[i][1]]);
+                          _edges.add(newEdge);
+                          _nodes[edges[i][0]].neighbors.add(newEdge);
+                          _nodes[edges[i][1]].neighbors.add(newEdge);
                         });
                       }
                     }
