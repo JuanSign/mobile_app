@@ -69,6 +69,8 @@ class _GraphCanvasState extends State<GraphCanvas> {
     if (widget.mode != oldWidget.mode) {
       _mode = widget.mode;
       if (_mode == 'Save') Future.microtask(() => _SaveGraph());
+      if (_mode == 'Load') Future.microtask(() => _LoadGraph());
+      if (_mode == 'Clear') _ClearCanvas();
     }
   }
 
@@ -491,6 +493,127 @@ class _GraphCanvasState extends State<GraphCanvas> {
     }
 
     widget.onModeChange('Move Node');
+  }
+
+  // ignore: non_constant_identifier_names
+  Future<void> _LoadGraph() async {
+    TextEditingController idController = TextEditingController();
+    await showDialog(
+      context: context,
+      builder: (BuildContext context) {
+        return AlertDialog(
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text('Enter graph ID:'),
+              SizedBox(height: 16.0),
+              TextField(
+                controller: idController,
+                decoration: InputDecoration(
+                  labelText: 'Graph ID',
+                  border: OutlineInputBorder(),
+                ),
+              ),
+            ],
+          ),
+          actions: <Widget>[
+            TextButton(
+              child: Text('Cancel'),
+              onPressed: () {
+                Navigator.of(context).pop();
+              },
+            ),
+            TextButton(
+              child: Text('Load'),
+              onPressed: () async {
+                Navigator.of(context).pop();
+
+                String graphId = idController.text.trim();
+                if (graphId.isEmpty) {
+                  _showSnackBar('Graph ID cannot be empty!');
+                } else {
+                  setState(() {
+                    _isLoading = true;
+                  });
+
+                  try {
+                    final response = await http.post(
+                      Uri.parse('https://grapher-aiyc.onrender.com/load_graph'),
+                      headers: {
+                        "Content-Type": "application/json",
+                      },
+                      body: jsonEncode({"id": graphId}),
+                    );
+
+                    if (response.statusCode == 404) {
+                      _showSnackBar('Graph Not Found.');
+                    } else if (response.statusCode != 200) {
+                      _showSnackBar(
+                          'Failed to Load Graph. Error: ${response.body}');
+                    } else {
+                      // Parse the response body
+                      final data = jsonDecode(response.body);
+
+                      final graphData = data['graph'];
+
+                      final List<List<double>> nodes =
+                          (graphData['nodes'] as List<dynamic>)
+                              .map((node) => List<double>.from(node))
+                              .toList();
+
+                      final List<List<int>> edges =
+                          (graphData['edges'] as List<dynamic>)
+                              .map((edge) => List<int>.from(edge))
+                              .toList();
+
+                      _nodes.clear();
+                      _edges.clear();
+                      for (int i = 0; i < nodes.length; i++) {
+                        setState(() {
+                          _nodes.add(Node(
+                              id: i,
+                              radius: _nodeRadius,
+                              position: Offset(nodes[i][0], nodes[i][1])));
+                        });
+                      }
+                      for (int i = 0; i < edges.length; i++) {
+                        setState(() {
+                          _edges.add(Edge(
+                              start: _nodes[edges[i][0]],
+                              end: _nodes[edges[i][1]]));
+                        });
+                      }
+                    }
+                  } catch (error) {
+                    _showSnackBar('Failed to Load Graph.');
+                  } finally {
+                    if (mounted) {
+                      setState(() {
+                        _isLoading = false;
+                      });
+                    }
+                  }
+                }
+              },
+            ),
+          ],
+        );
+      },
+    );
+
+    widget.onModeChange('Move Node');
+  }
+
+  // ignore: non_constant_identifier_names
+  void _ClearCanvas() {
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) {
+        setState(() {
+          _nodes = [];
+          _edges = [];
+        });
+      }
+    });
   }
 
   void _showSnackBar(String message) {

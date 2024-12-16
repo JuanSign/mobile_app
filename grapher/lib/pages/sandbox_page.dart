@@ -138,6 +138,38 @@ class _SandboxPageState extends State<SandboxPage> {
                 Navigator.pop(context);
               },
             ),
+            ListTile(
+              title: Text(
+                'Load',
+                style: TextStyle(
+                  fontWeight:
+                      _mode == 'Load' ? FontWeight.bold : FontWeight.normal,
+                  color: Colors.black,
+                ),
+              ),
+              selected: _mode == 'Load',
+              selectedTileColor: Colors.blueAccent,
+              onTap: () {
+                _switchMode('Load');
+                Navigator.pop(context);
+              },
+            ),
+            ListTile(
+              title: Text(
+                'Clear',
+                style: TextStyle(
+                  fontWeight:
+                      _mode == 'Clear' ? FontWeight.bold : FontWeight.normal,
+                  color: Colors.black,
+                ),
+              ),
+              selected: _mode == 'Clear',
+              selectedTileColor: Colors.blueAccent,
+              onTap: () {
+                _switchMode('Clear');
+                Navigator.pop(context);
+              },
+            ),
           ],
         ),
       ),
