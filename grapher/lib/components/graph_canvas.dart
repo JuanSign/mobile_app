@@ -206,6 +206,7 @@ class _GraphCanvasState extends State<GraphCanvas> {
     visited[source.id] = true;
 
     for (Edge e in source.neighbors) {
+      if (_mode != "BFS Traversal") break;
       if (e.start.id != source.id) {
         final temp = e.start;
         e.start = e.end;
@@ -226,7 +227,7 @@ class _GraphCanvasState extends State<GraphCanvas> {
         _traversalList.last.color = Colors.lightBlueAccent;
       });
       await Future.delayed(Duration(seconds: 1));
-
+      if (_mode != "DFS Traversal") break;
       if (visited[currentEdge.end.id]) {
         setState(() {
           _traversalList.last.color = Colors.redAccent;
@@ -248,7 +249,7 @@ class _GraphCanvasState extends State<GraphCanvas> {
         });
         await Future.delayed(Duration(seconds: 1));
       }
-
+      if (_mode != "DFS Traversal") break;
       Node currentNode = currentEdge.end;
       setState(() {
         currentNode.color = Colors.red;
@@ -256,6 +257,7 @@ class _GraphCanvasState extends State<GraphCanvas> {
       Future.delayed(Duration(seconds: 1));
 
       for (Edge e in currentNode.neighbors) {
+        if (_mode != "DFS Traversal") break;
         if (e.start.id != currentNode.id) {
           final temp = e.start;
           e.start = e.end;
@@ -320,7 +322,11 @@ class _GraphCanvasState extends State<GraphCanvas> {
       if (_mode != "BFS Traversal") break;
 
       Edge currentEdge = edgeStack.removeAt(0);
-
+      setState(() {
+        _traversalList.first.color = Colors.lightBlueAccent;
+      });
+      await Future.delayed(Duration(seconds: 1));
+      if (_mode != "BFS Traversal") break;
       if (visited[currentEdge.end.id]) {
         setState(() {
           _traversalList.first.color = Colors.redAccent;
@@ -342,7 +348,7 @@ class _GraphCanvasState extends State<GraphCanvas> {
         });
         await Future.delayed(Duration(seconds: 1));
       }
-
+      if (_mode != "BFS Traversal") break;
       Node currentNode = currentEdge.end;
       setState(() {
         currentNode.color = Colors.red;
@@ -350,6 +356,7 @@ class _GraphCanvasState extends State<GraphCanvas> {
       Future.delayed(Duration(seconds: 1));
 
       for (Edge e in currentNode.neighbors) {
+        if (_mode != "BFS Traversal") break;
         if (e.start.id != currentNode.id) {
           final temp = e.start;
           e.start = e.end;
