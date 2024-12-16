@@ -12,19 +12,17 @@ class SandboxPage extends StatefulWidget {
 }
 
 class _SandboxPageState extends State<SandboxPage> {
-  List<Node> _nodes = [];
-  List<Edge> _edges = [];
+  final List<Node> _nodes = [];
+  final List<Edge> _edges = [];
   String _mode = 'Move Node';
 
-  void onNodesChanged(List<Node> newNodes) {
-    _nodes = newNodes;
-  }
-
-  void onEdgesChanged(List<Edge> newEdges) {
-    _edges = newEdges;
-  }
-
   void _switchMode(String mode) {
+    setState(() {
+      _mode = mode;
+    });
+  }
+
+  void _updateMode(String mode) {
     setState(() {
       _mode = mode;
     });
@@ -148,8 +146,7 @@ class _SandboxPageState extends State<SandboxPage> {
         edges: _edges,
         nodeRadius: 25,
         mode: _mode,
-        onNodesChanged: onNodesChanged,
-        onEdgesChanged: onEdgesChanged,
+        onModeChange: _updateMode,
       ),
     );
   }

@@ -1,16 +1,19 @@
+import 'dart:convert';
+
 import 'package:flutter/material.dart';
 import 'package:grapher/components/graph/edge.dart';
 import 'package:grapher/components/graph/edge_painter.dart';
 import 'package:grapher/components/graph/node.dart';
 import 'package:grapher/components/graph/traversal_edge.dart';
 
+import 'package:http/http.dart' as http;
+
 class GraphCanvas extends StatefulWidget {
   final List<Node> nodes;
   final List<Edge> edges;
   final double nodeRadius;
   final String mode;
-  final ValueChanged<List<Node>> onNodesChanged;
-  final ValueChanged<List<Edge>> onEdgesChanged;
+  final Function(String) onModeChange;
 
   const GraphCanvas({
     super.key,
@@ -18,8 +21,7 @@ class GraphCanvas extends StatefulWidget {
     required this.edges,
     required this.nodeRadius,
     required this.mode,
-    required this.onNodesChanged,
-    required this.onEdgesChanged,
+    required this.onModeChange,
   });
 
   @override
@@ -38,8 +40,9 @@ class _GraphCanvasState extends State<GraphCanvas> {
   Node? newEdgeStart;
   Offset? newEdgeEnd;
 
-  late List<TraversalEdge> _traversalList;
+  bool _isLoading = false;
 
+  late List<TraversalEdge> _traversalList;
   @override
   void initState() {
     super.initState();
@@ -65,6 +68,7 @@ class _GraphCanvasState extends State<GraphCanvas> {
     }
     if (widget.mode != oldWidget.mode) {
       _mode = widget.mode;
+      if (_mode == 'Save') Future.microtask(() => _SaveGraph());
     }
   }
 
@@ -372,6 +376,130 @@ class _GraphCanvasState extends State<GraphCanvas> {
     });
   }
 
+// ignore: non_constant_identifier_names
+  Future<void> _SaveGraph() async {
+    if (_nodes.isEmpty) {
+      await showDialog(
+        context: context,
+        builder: (BuildContext context) {
+          return AlertDialog(
+            title: Text('Warning'),
+            content: Text('No graph detected. Please add nodes to the graph.'),
+            actions: <Widget>[
+              TextButton(
+                child: Text('OK'),
+                onPressed: () {
+                  Navigator.of(context).pop();
+                },
+              ),
+            ],
+          );
+        },
+      );
+    } else {
+      TextEditingController idController = TextEditingController();
+      await showDialog(
+        context: context,
+        builder: (BuildContext context) {
+          return AlertDialog(
+            content: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text('Enter an ID for the graph:'),
+                SizedBox(height: 16.0),
+                TextField(
+                  controller: idController,
+                  decoration: InputDecoration(
+                    labelText: 'Graph ID',
+                    border: OutlineInputBorder(),
+                  ),
+                ),
+              ],
+            ),
+            actions: <Widget>[
+              TextButton(
+                child: Text('Cancel'),
+                onPressed: () {
+                  Navigator.of(context).pop();
+                },
+              ),
+              TextButton(
+                child: Text('Save'),
+                onPressed: () async {
+                  Navigator.of(context).pop();
+
+                  String graphId = idController.text.trim();
+                  if (graphId.isEmpty) {
+                    _showSnackBar('Graph ID cannot be empty!');
+                  } else {
+                    List<List<double>> nodesList = [];
+                    List<List<int>> edgesList = [];
+
+                    for (Node node in _nodes) {
+                      nodesList.add([node.position.dx, node.position.dy]);
+                    }
+                    for (Edge edge in _edges) {
+                      edgesList.add([edge.start.id, edge.end.id]);
+                    }
+
+                    String graph = jsonEncode({
+                      "nodes": nodesList,
+                      "edges": edgesList,
+                    });
+
+                    Map<String, dynamic> request = {
+                      "id": graphId,
+                      "graph": graph
+                    };
+
+                    setState(() {
+                      _isLoading = true;
+                    });
+
+                    try {
+                      final response = await http.post(
+                        Uri.parse(
+                            'https://grapher-aiyc.onrender.com/save_graph'),
+                        headers: {
+                          "Content-Type": "application/json",
+                        },
+                        body: jsonEncode(request),
+                      );
+
+                      if (response.statusCode == 201) {
+                        _showSnackBar('Graph Saved.');
+                      } else {
+                        _showSnackBar(
+                            'Failed to Save Graph. Error: ${response.body}');
+                      }
+                    } catch (error) {
+                      _showSnackBar('Failed to Save Graph.');
+                    } finally {
+                      if (mounted) {
+                        setState(() {
+                          _isLoading = false;
+                        });
+                      }
+                    }
+                  }
+                },
+              ),
+            ],
+          );
+        },
+      );
+    }
+
+    widget.onModeChange('Move Node');
+  }
+
+  void _showSnackBar(String message) {
+    if (mounted) {
+      ScaffoldMessenger.of(context)
+          .showSnackBar(SnackBar(content: Text(message)));
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return GestureDetector(
@@ -448,6 +576,19 @@ class _GraphCanvasState extends State<GraphCanvas> {
                     ),
                   ),
                 ),
+              Positioned.fill(
+                child: IgnorePointer(
+                  ignoring: !_isLoading,
+                  child: _isLoading
+                      ? Container(
+                          color: Colors.grey.withValues(),
+                          child: Center(
+                            child: CircularProgressIndicator(),
+                          ),
+                        )
+                      : SizedBox.shrink(),
+                ),
+              ),
             ],
           );
         },
