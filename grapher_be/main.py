@@ -1,23 +1,27 @@
 import os
-import json  # To parse the "graph" string into a dictionary
+import json
 from dotenv import load_dotenv
 from flask import Flask, request, jsonify
 from flask_cors import CORS
 from waitress import serve
 import psycopg2
+from psycopg2 import sql
 
-# Load environment variables
 load_dotenv()
 
-# Connect to PostgreSQL
-conn = psycopg2.connect(
-    dbname=os.getenv('PGDATABASE'),
-    host=os.getenv('PGHOST'),
-    password=os.getenv('PGPASSWORD'),
-    port=os.getenv('PGPORT'),
-    user=os.getenv('PGUSER'),
-)
-cursor = conn.cursor()
+def get_db_connection():
+    try:
+        conn = psycopg2.connect(
+            dbname=os.getenv('PGDATABASE'),
+            host=os.getenv('PGHOST'),
+            password=os.getenv('PGPASSWORD'),
+            port=os.getenv('PGPORT'),
+            user=os.getenv('PGUSER'),
+        )
+        return conn
+    except Exception as e:
+        print(f"Error connecting to the database: {e}")
+        return None
 
 app = Flask(__name__)
 CORS(app)
@@ -47,6 +51,10 @@ def validate_graph(graph):
 
 @app.route('/save_graph', methods=['POST'])
 def save_graph():
+    conn = get_db_connection()
+    if conn is None:
+        return jsonify({"error": "Database connection failed."}), 500
+
     try:
         data = request.get_json()
 
@@ -54,12 +62,12 @@ def save_graph():
         if 'id' not in data or not isinstance(data['id'], str):
             return jsonify({"error": "`id` is required and must be a string."}), 400
 
-        # Validate 'graph' as a string and parse it
+        # Validate 'graph' 
         if 'graph' not in data or not isinstance(data['graph'], str):
             return jsonify({"error": "`graph` is required and must be a string."}), 400
 
         try:
-            graph = json.loads(data['graph'])  # Parse the string into a dictionary
+            graph = json.loads(data['graph'])  
         except json.JSONDecodeError:
             return jsonify({"error": "`graph` must be a valid JSON string."}), 400
 
@@ -68,57 +76,60 @@ def save_graph():
         if error:
             return jsonify({"error": error}), 400
 
-        # Start the transaction
-        cursor.execute("BEGIN")
+        with conn.cursor() as cursor:
+            cursor.execute("BEGIN")
 
-        # Insert into the database
-        query = "INSERT INTO graphs (id, graph) VALUES (%s, %s)"
-        cursor.execute(query, (data['id'], json.dumps(graph)))  # Store graph as a JSON string
+            # Insert into the database
+            query = "INSERT INTO graphs (id, graph) VALUES (%s, %s)"
+            cursor.execute(query, (data['id'], json.dumps(graph))) 
 
-        # Commit the transaction
-        conn.commit()
+            # Commit the transaction
+            conn.commit()
 
         return jsonify({"message": "Graph saved successfully."}), 201
 
     except Exception as e:
-        # Rollback the transaction if there is an error
         conn.rollback()
         return jsonify({"error": str(e)}), 500
-    
+    finally:
+        conn.close()
+
 @app.route('/load_graph', methods=['POST'])
 def load_graph():
+    conn = get_db_connection()
+    if conn is None:
+        return jsonify({"error": "Database connection failed."}), 500
+
     try:
         # Get the JSON data from the request body
         data = request.get_json()
 
-        # Validate that 'id' is present in the request body
+        # Validate that 'id' 
         if 'id' not in data or not isinstance(data['id'], str):
             return jsonify({"error": "`id` is required and must be a string."}), 400
 
         graph_id = data['id']
 
-        # Query the database to fetch the graph by its ID
-        query = "SELECT id, graph FROM graphs WHERE id = %s"
-        cursor.execute(query, (graph_id,))
+        with conn.cursor() as cursor:
+            query = "SELECT id, graph FROM graphs WHERE id = %s"
+            cursor.execute(query, (graph_id,))
 
-        # Fetch the result
-        result = cursor.fetchone()
+            result = cursor.fetchone()
 
-        # If no graph was found for the given ID, return a 404 error
-        if result is None:
-            return jsonify({"error": "Graph not found."}), 404
+            if result is None:
+                return jsonify({"error": "Graph not found."}), 404
 
-        # Parse the graph from the database (it's stored as a JSON string)
-        graph = json.loads(result[1])  # result[1] is the 'graph' column
+            graph = json.loads(result[1]) 
 
-        # Return the graph as a JSON response
         return jsonify({
-            "id": result[0],  # Return the graph's ID
-            "graph": graph     # Return the graph data
+            "id": result[0],  
+            "graph": graph     
         }), 200
 
     except Exception as e:
         return jsonify({"error": str(e)}), 500
+    finally:
+        conn.close()
 
 if __name__ == '__main__':
     serve(app, host='0.0.0.0', port=5000)
