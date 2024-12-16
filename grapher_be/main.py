@@ -68,15 +68,23 @@ def save_graph():
         if error:
             return jsonify({"error": error}), 400
 
+        # Start the transaction
+        cursor.execute("BEGIN")
+
         # Insert into the database
         query = "INSERT INTO graphs (id, graph) VALUES (%s, %s)"
         cursor.execute(query, (data['id'], json.dumps(graph)))  # Store graph as a JSON string
+
+        # Commit the transaction
         conn.commit()
 
         return jsonify({"message": "Graph saved successfully."}), 201
 
     except Exception as e:
+        # Rollback the transaction if there is an error
+        conn.rollback()
         return jsonify({"error": str(e)}), 500
+
 
 if __name__ == '__main__':
     serve(app, host='0.0.0.0', port=5000)
