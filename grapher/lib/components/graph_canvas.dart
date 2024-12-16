@@ -285,6 +285,9 @@ class _GraphCanvasState extends State<GraphCanvas> {
         e.pct = 100;
       }
     });
+    setState(() {
+      _traversalList.clear();
+    });
   }
 
   // ignore: non_constant_identifier_names
@@ -375,6 +378,9 @@ class _GraphCanvasState extends State<GraphCanvas> {
         e.secondaryColor = Colors.black;
         e.pct = 100;
       }
+    });
+    setState(() {
+      _traversalList.clear();
     });
   }
 
