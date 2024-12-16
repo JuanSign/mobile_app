@@ -124,6 +124,22 @@ class _SandboxPageState extends State<SandboxPage> {
                 Navigator.pop(context);
               },
             ),
+            ListTile(
+              title: Text(
+                'Save',
+                style: TextStyle(
+                  fontWeight:
+                      _mode == 'Save' ? FontWeight.bold : FontWeight.normal,
+                  color: Colors.black,
+                ),
+              ),
+              selected: _mode == 'Save',
+              selectedTileColor: Colors.blueAccent,
+              onTap: () {
+                _switchMode('Save');
+                Navigator.pop(context);
+              },
+            ),
           ],
         ),
       ),

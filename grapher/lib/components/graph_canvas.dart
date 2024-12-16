@@ -1,9 +1,8 @@
-import 'dart:collection';
-
 import 'package:flutter/material.dart';
 import 'package:grapher/components/graph/edge.dart';
 import 'package:grapher/components/graph/edge_painter.dart';
 import 'package:grapher/components/graph/node.dart';
+import 'package:grapher/components/graph/traversal_edge.dart';
 
 class GraphCanvas extends StatefulWidget {
   final List<Node> nodes;
@@ -39,6 +38,8 @@ class _GraphCanvasState extends State<GraphCanvas> {
   Node? newEdgeStart;
   Offset? newEdgeEnd;
 
+  late List<TraversalEdge> _traversalList;
+
   @override
   void initState() {
     super.initState();
@@ -46,6 +47,7 @@ class _GraphCanvasState extends State<GraphCanvas> {
     _edges = widget.edges;
     _nodeRadius = widget.nodeRadius;
     _mode = widget.mode;
+    _traversalList = [];
   }
 
   @override
@@ -80,6 +82,15 @@ class _GraphCanvasState extends State<GraphCanvas> {
         if ((details.localPosition - _nodes[i].position).distance <=
             _nodeRadius) {
           _DFSTraversal(_nodes[i]);
+          return;
+        }
+      }
+    }
+    if (_mode == 'BFS Traversal') {
+      for (int i = 0; i < _nodes.length; i++) {
+        if ((details.localPosition - _nodes[i].position).distance <=
+            _nodeRadius) {
+          _BFSTraversal(_nodes[i]);
           return;
         }
       }
@@ -143,27 +154,18 @@ class _GraphCanvasState extends State<GraphCanvas> {
     }
   }
 
-  Color getShadeOfYellow(int iteration, int maxIterations) {
-    final Color lightYellow = Colors.yellow.shade100;
-    final Color darkYellow = Colors.yellow.shade900;
-
-    double t = (iteration - 1) / (maxIterations - 1);
-
-    return Color.lerp(lightYellow, darkYellow, t) ?? lightYellow;
-  }
-
-  Future<void> queueEdge(Edge e, int iter, int max) async {
-    if (_mode != "DFS Traversal") return;
+  Future<void> queueEdge(Edge e) async {
+    if (_mode != "DFS Traversal" && _mode != "BFS Traversal") return;
     for (int i = 1; i <= 100; i++) {
       setState(() {
-        e.animateEdge(i.toDouble(), getShadeOfYellow(iter, max), Colors.black);
+        e.animateEdge(i.toDouble(), Colors.yellow, Colors.black);
       });
       await Future.delayed(Duration(milliseconds: 15));
     }
   }
 
   Future<void> dequeuEdge(Edge e) async {
-    if (_mode != "DFS Traversal") return;
+    if (_mode != "DFS Traversal" && _mode != "BFS Traversal") return;
     Color secondaryColor = e.mainColor;
     for (int i = 100; i >= 0; i--) {
       setState(() {
@@ -176,7 +178,7 @@ class _GraphCanvasState extends State<GraphCanvas> {
   Future<void> traverseEdge(Edge e) async {
     Color secondaryColor = e.mainColor;
     for (int i = 1; i <= 100; i++) {
-      if (_mode != "DFS Traversal") return;
+      if (_mode != "DFS Traversal" && _mode != "BFS Traversal") return;
       setState(() {
         e.animateEdge(i.toDouble(), Colors.green, secondaryColor);
       });
@@ -186,9 +188,6 @@ class _GraphCanvasState extends State<GraphCanvas> {
 
   // ignore: non_constant_identifier_names
   Future<void> _DFSTraversal(Node source) async {
-    int curQueue = 1;
-    int maxQueue = _edges.length;
-
     if (source.neighbors.isEmpty) return;
 
     final List<Edge> edgeStack = [];
@@ -206,7 +205,10 @@ class _GraphCanvasState extends State<GraphCanvas> {
         e.start = e.end;
         e.end = temp;
       }
-      await queueEdge(e, curQueue++, maxQueue);
+      setState(() {
+        _traversalList.add(TraversalEdge(e, Colors.yellow));
+      });
+      await queueEdge(e);
       edgeStack.add(e);
     }
 
@@ -214,14 +216,32 @@ class _GraphCanvasState extends State<GraphCanvas> {
       if (_mode != "DFS Traversal") break;
 
       Edge currentEdge = edgeStack.removeLast();
+      setState(() {
+        _traversalList.last.color = Colors.lightBlueAccent;
+      });
+      await Future.delayed(Duration(seconds: 1));
 
       if (visited[currentEdge.end.id]) {
+        setState(() {
+          _traversalList.last.color = Colors.redAccent;
+        });
         await dequeuEdge(currentEdge);
+        setState(() {
+          _traversalList.removeLast();
+        });
+        await Future.delayed(Duration(seconds: 1));
         continue;
+      } else {
+        visited[currentEdge.end.id] = true;
+        setState(() {
+          _traversalList.last.color = Colors.greenAccent;
+        });
+        await traverseEdge(currentEdge);
+        setState(() {
+          _traversalList.removeLast();
+        });
+        await Future.delayed(Duration(seconds: 1));
       }
-
-      visited[currentEdge.end.id] = true;
-      await traverseEdge(currentEdge);
 
       Node currentNode = currentEdge.end;
       setState(() {
@@ -241,7 +261,10 @@ class _GraphCanvasState extends State<GraphCanvas> {
           e.end = temp;
           continue;
         }
-        await queueEdge(e, curQueue++, maxQueue);
+        setState(() {
+          _traversalList.add(TraversalEdge(e, Colors.yellow));
+        });
+        await queueEdge(e);
         edgeStack.add(e);
       }
     }
@@ -258,7 +281,96 @@ class _GraphCanvasState extends State<GraphCanvas> {
     });
   }
 
-  Future<void> _BFSTraversal(Node source) async {}
+  // ignore: non_constant_identifier_names
+  Future<void> _BFSTraversal(Node source) async {
+    if (source.neighbors.isEmpty) return;
+
+    final List<Edge> edgeStack = [];
+    final List<bool> visited = List<bool>.filled(_nodes.length, false);
+
+    setState(() {
+      source.color = Colors.red;
+    });
+    await Future.delayed(Duration(seconds: 1));
+    visited[source.id] = true;
+
+    for (Edge e in source.neighbors) {
+      if (e.start.id != source.id) {
+        final temp = e.start;
+        e.start = e.end;
+        e.end = temp;
+      }
+      setState(() {
+        _traversalList.add(TraversalEdge(e, Colors.yellow));
+      });
+      await queueEdge(e);
+      edgeStack.add(e);
+    }
+
+    while (edgeStack.isNotEmpty) {
+      if (_mode != "BFS Traversal") break;
+
+      Edge currentEdge = edgeStack.removeAt(0);
+
+      if (visited[currentEdge.end.id]) {
+        setState(() {
+          _traversalList.first.color = Colors.redAccent;
+        });
+        await dequeuEdge(currentEdge);
+        setState(() {
+          _traversalList.removeAt(0);
+        });
+        await Future.delayed(Duration(seconds: 1));
+        continue;
+      } else {
+        visited[currentEdge.end.id] = true;
+        setState(() {
+          _traversalList.first.color = Colors.greenAccent;
+        });
+        await traverseEdge(currentEdge);
+        setState(() {
+          _traversalList.removeAt(0);
+        });
+        await Future.delayed(Duration(seconds: 1));
+      }
+
+      Node currentNode = currentEdge.end;
+      setState(() {
+        currentNode.color = Colors.red;
+      });
+      Future.delayed(Duration(seconds: 1));
+
+      for (Edge e in currentNode.neighbors) {
+        if (e.start.id != currentNode.id) {
+          final temp = e.start;
+          e.start = e.end;
+          e.end = temp;
+        }
+        if (visited[e.end.id]) {
+          final temp = e.start;
+          e.start = e.end;
+          e.end = temp;
+          continue;
+        }
+        setState(() {
+          _traversalList.add(TraversalEdge(e, Colors.yellow));
+        });
+        await queueEdge(e);
+        edgeStack.add(e);
+      }
+    }
+
+    setState(() {
+      for (Node n in _nodes) {
+        n.color = Colors.blue;
+      }
+      for (Edge e in _edges) {
+        e.mainColor = Colors.black;
+        e.secondaryColor = Colors.black;
+        e.pct = 100;
+      }
+    });
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -269,35 +381,74 @@ class _GraphCanvasState extends State<GraphCanvas> {
       onPanEnd: _handleOnPanEnd,
       child: LayoutBuilder(
         builder: (context, constraints) {
-          return Container(
-            color: Colors.white,
-            child: Stack(
-              children: [
-                if (_mode == 'Add Edge' &&
-                    newEdgeStart != null &&
-                    newEdgeEnd != null)
-                  Positioned(
-                    left: 0,
-                    top: 0,
-                    child: CustomPaint(
-                      painter: EdgePainter(
-                        start: newEdgeStart!.position,
-                        end: newEdgeEnd!,
+          return Stack(
+            children: [
+              Container(
+                color: Colors.white,
+                child: Stack(
+                  children: [
+                    if (_mode == 'Add Edge' &&
+                        newEdgeStart != null &&
+                        newEdgeEnd != null)
+                      Positioned(
+                        left: 0,
+                        top: 0,
+                        child: CustomPaint(
+                          painter: EdgePainter(
+                            start: newEdgeStart!.position,
+                            end: newEdgeEnd!,
+                          ),
+                        ),
                       ),
+                    ..._edges.asMap().entries.map(
+                      (entry) {
+                        return entry.value.drawEdge();
+                      },
+                    ),
+                    ..._nodes.asMap().entries.map(
+                      (entry) {
+                        return entry.value.drawNode();
+                      },
+                    ),
+                  ],
+                ),
+              ),
+              if (_mode == 'DFS Traversal' || _mode == 'BFS Traversal')
+                Positioned(
+                  top: 10,
+                  right: 10,
+                  child: Container(
+                    width: 150,
+                    color: Colors.white,
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          _mode,
+                          style: TextStyle(
+                            fontWeight: FontWeight.bold,
+                            fontSize: 16,
+                          ),
+                        ),
+                        ..._traversalList.map((tEdge) {
+                          return Container(
+                            margin: const EdgeInsets.symmetric(vertical: 4),
+                            padding: const EdgeInsets.all(8),
+                            decoration: BoxDecoration(
+                              color: tEdge.color,
+                              borderRadius: BorderRadius.circular(8),
+                            ),
+                            child: Text(
+                              'Edge: ${tEdge.edge.start.id + 1} -> ${tEdge.edge.end.id + 1}',
+                              style: TextStyle(fontSize: 14),
+                            ),
+                          );
+                        }),
+                      ],
                     ),
                   ),
-                ..._edges.asMap().entries.map(
-                  (entry) {
-                    return entry.value.drawEdge();
-                  },
                 ),
-                ..._nodes.asMap().entries.map(
-                  (entry) {
-                    return entry.value.drawNode();
-                  },
-                ),
-              ],
-            ),
+            ],
           );
         },
       ),
